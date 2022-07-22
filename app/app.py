@@ -1,30 +1,36 @@
 #!/usr/bin/env python3
 #coding=utf-8
-from PyQt5.QtWidgets import QWidget, QApplication
-from PyQt5.QtCore import QTimer, QPoint, QFile, QIODevice, QTextCodec, QRect, QPointF, Qt
-from PyQt5.QtGui import QPainter, QColor, QPolygonF, QPainterPath, QBrush, QPen, QFont, QIcon
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+import resource
 import sys
-import os
 
 class ColorWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.initWidget()
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.onTimer)
-        self.index = 0
+        self.path = sys.argv[0]
         self.colors = []
         self.mpos = QPoint()
         self.mouse = QPoint()
 
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.onTimer)
+        self.index = 0
+        self.shadow = 0
+        self.flash = 16
+        self.flashTime = 0
+        self.flashConut = 200
+
     def initWidget(self):
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowIcon(QIcon(':/logo.ico'))
+        self.setWindowTitle('Color')
         self.resize(960, 680)
 
     def start(self):
-        path = sys.argv[0]
-        pathColor = path.replace('app.py', 'color_utf8.txt')
-        # pathColor = os.path.dirname(sys.executable) + '\\color_utf8.txt'
-        file = QFile(pathColor)
+        file = QFile(':/color_utf8.txt')
         if file.open(QIODevice.ReadOnly | QIODevice.Text):
             fileWord = file.readAll().data()
             fileData = fileWord.decode(encoding="utf-8", errors="ignore")
@@ -39,13 +45,14 @@ class ColorWidget(QWidget):
                 if colors.__len__() > 0:
                     self.colors.append(colors)
             file.close()
-        self.timer.start(2000)
 
-    def onTimer(self):
-        self.index += 1
-        if self.colors.__len__() == self.index :
-            self.index = 0
-        self.repaint()
+        rect = QRectF(0, 0, self.width(), self.height())
+        painterPath = QPainterPath()
+        painterPath.addRoundedRect(rect, 10, 10)
+        polygon = painterPath.toFillPolygon().toPolygon()
+        self.setMask(QRegion(polygon))
+
+        self.timer.start(self.flash)
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
@@ -80,28 +87,43 @@ class ColorWidget(QWidget):
                 self.index = 0
             self.repaint()
 
+    def onTimer(self):
+        self.flashTime += 1
+        if self.flashTime > self.flashConut:
+            self.flashTime = 0
+            self.shadow = 0
+            self.index += 1
+            if self.colors.__len__() == self.index :
+                self.index = 0
+        else:
+            self.shadow += 1
+        self.repaint()
+
     def paintEvent(self, event):
         if self.colors.__len__() <= self.index:
             return
         items = self.colors[self.index]
         width = self.width()
         height = self.height()
+        shadow = self.shadow
+        flashCount = self.flashConut
         color = QColor(items['hex'])
         rect = QRect(0, 0, width, height)
 
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
         painter.setPen(Qt.NoPen)
         painter.setBrush(QBrush(color))
         painter.drawRect(rect)
 
         polygon = QPolygonF()
-        polygon.append(QPointF(width * 2 / 3, 0))
-        polygon.append(QPointF(width, height / 3))
+        polygon.append(QPointF(width -  width * shadow / flashCount, 0))
+        polygon.append(QPointF(width, height * shadow / flashCount))
         polygon.append(QPointF(width, 0))
 
         polygon2 = QPolygonF()
-        polygon2.append(QPointF(0, height * 2 / 3))
-        polygon2.append(QPointF(width / 3, height))
+        polygon2.append(QPointF(0, height - height * shadow / flashCount))
+        polygon2.append(QPointF(width * shadow / flashCount, height))
         polygon2.append(QPointF(0, height))
 
         paintPath = QPainterPath()
@@ -113,29 +135,34 @@ class ColorWidget(QWidget):
         color2.setRed(min(color.red() + 30, 255))
         color2.setGreen(min(color.green() + 30, 255))
         color2.setBlue(min(color.blue() + 30, 255))
-        painter.setBrush(QBrush(color2))
-        painter.drawPath(paintPath)
 
+        radialGradient = QLinearGradient(0, height, width, 0)
+        radialGradient.setColorAt(0, color2)
+        radialGradient.setColorAt(0.3, color)
+        radialGradient.setColorAt(0.6, color)
+        radialGradient.setColorAt(1, color2)
+        # painter.setBrush(QBrush(radialGradient))
+        # painter.drawPath(paintPath)
+
+        cOffset = float(255 * shadow / flashCount)
         cTmep = color.red() + color.green() + color.blue()
         if  cTmep > 360:
-            color2.setRed(max(color.red() - 120, 0))
-            color2.setGreen(max(color.green() - 120, 0))
-            color2.setBlue(max(color.blue() - 120, 0))
+            color2.setRed(max(color.red() - cOffset, 0))
+            color2.setGreen(max(color.green() - cOffset, 0))
+            color2.setBlue(max(color.blue() - cOffset, 0))
         else:
-            color2.setRed(min(color.red() + 120, 255))
-            color2.setGreen(min(color.green() + 120, 255))
-            color2.setBlue(min(color.blue() + 120, 255))
+            color2.setRed(min(color.red() + cOffset, 255))
+            color2.setGreen(min(color.green() + cOffset, 255))
+            color2.setBlue(min(color.blue() + cOffset, 255))
         
-        painter.setPen(QPen(color2))
-        font = QFont('仿宋', 80)
-        painter.setFont(font)
-        painter.drawText(rect, Qt.AlignCenter, items['name'])
-        
-        font = QFont('仿宋', 14)
-        painter.setFont(font)
-        rect.adjust(10, 10, -10, -10)
+        offset = width / 20
+        rect.adjust(offset, offset, -offset, -offset)
+
         header = 'R' + str(color.red()) + ' G' + str(color.green()) + ' B' + str(color.blue())
+        painter.setPen(QPen(color2))
+        painter.setFont(QFont('仿宋', 14))
         painter.drawText(rect, Qt.AlignLeft | Qt.AlignTop, header)
+
         footer = ''
         if items['book'].__len__() > 0:
             footer += '《' + items['book'] + '》'
@@ -143,20 +170,20 @@ class ColorWidget(QWidget):
             footer += ' -- ' + items['author']
         if items['describe'].__len__() > 0:
             footer += '\n' + items['describe']
+        painter.setPen(QPen(color2))
+        painter.setFont(QFont('仿宋', 14))
         painter.drawText(rect, Qt.AlignRight | Qt.AlignBottom, footer)
+
+        rect.adjust(offset, offset, 0, -offset)
+        painter.setPen(QPen(color2))
+        painter.setFont(QFont('仿宋', 60))
+        painter.drawText(rect, Qt.AlignRight | Qt.AlignBottom, items['name'])
+
         super().paintEvent(event)
 
-#main
-app = QApplication(sys.argv)
-codec = QTextCodec.codecForName("utf-8")
-QTextCodec.setCodecForLocale(codec)
-
-# path = sys.argv[0]
-# pathIcon = path.replace('app.py', 'logo.ico')
-
-w = ColorWidget()
-w.setWindowFlags(Qt.FramelessWindowHint)
-# w.setWindowIcon(QIcon(pathIcon))
-w.show()
-w.start()
-sys.exit(app.exec_())
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    w = ColorWidget()
+    w.start()
+    w.show()
+    sys.exit(app.exec_())
