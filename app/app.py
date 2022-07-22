@@ -27,7 +27,7 @@ class ColorWidget(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setWindowIcon(QIcon(':/logo.ico'))
         self.setWindowTitle('Color')
-        self.resize(960, 680)
+        self.resize(1280, 800)
 
     def start(self):
         file = QFile(':/color_utf8.txt')
@@ -87,6 +87,16 @@ class ColorWidget(QWidget):
                 self.index = 0
             self.repaint()
 
+    def getColor(self, index):
+        if index < 0:
+            return QColor('ffffff')
+        elif self.colors.__len__() > index:
+            return QColor(self.colors[index]['hex'])
+        else:
+            index2 = index - self.colors.__len__()
+            return self.getColor(index2)
+
+
     def onTimer(self):
         self.flashTime += 1
         if self.flashTime > self.flashConut:
@@ -106,62 +116,106 @@ class ColorWidget(QWidget):
         width = self.width()
         height = self.height()
         shadow = self.shadow
+        spring = 10
+        radius = 10
         flashCount = self.flashConut
-        color = QColor(items['hex'])
-        rect = QRect(0, 0, width, height)
+        color = self.getColor(self.index)
+        color2 = self.getColor(self.index + 1)
+        color3 = QColor('#ffffff')
+        color4 = QColor('#eeeeee')
+        rect = QRectF(0, 0, width, height)
+        rectGroud = QRectF(0, 0, width, height)
+        rectColor = QRectF(0, 0, width, height)
+        rectColor2 = QRectF(0, 0, width, height)
+        rectColor3 = QRectF(0, 0, width, height)
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(color))
+        
+        painter.setBrush(QBrush(color3))
         painter.drawRect(rect)
+        
+        rectGroud.adjust(width / 10, 0, 0, 0)
+        painter.setBrush(QBrush(color4))
+        painter.drawRoundedRect(rectGroud, radius, radius)
 
-        polygon = QPolygonF()
-        polygon.append(QPointF(width -  width * shadow / flashCount, 0))
-        polygon.append(QPointF(width, height * shadow / flashCount))
-        polygon.append(QPointF(width, 0))
+        rectColor.adjust(width / 10, 0, -width * 2 / 10, -height / 5)
+        rectColor.adjust(spring, spring, -spring, -spring)
+        painter.setBrush(QBrush(color))
+        painter.drawRoundedRect(rectColor, radius, radius)
 
-        polygon2 = QPolygonF()
-        polygon2.append(QPointF(0, height - height * shadow / flashCount))
-        polygon2.append(QPointF(width * shadow / flashCount, height))
-        polygon2.append(QPointF(0, height))
+        rectColor2.adjust(width * 8 / 10, 0, 0, -height / 5)
+        rectColor2.adjust(0, spring, -spring, -spring)
+        painter.setBrush(QBrush(color3))
+        painter.drawRoundedRect(rectColor2, radius, radius)
 
-        paintPath = QPainterPath()
-        paintPath.addPolygon(polygon)
-        paintPath.addPolygon(polygon2)
-        paintPath.closeSubpath()
+        rectColor3.adjust(width / 10, height * 4 / 5, 0, 0)
+        rectColor3.adjust(spring, 0, -spring, -spring)
+        painter.setBrush(QBrush(color))
+        painter.drawRoundedRect(rectColor3, radius, radius)
 
-        color2 = QColor("#ffffff")
-        color2.setRed(min(color.red() + 30, 255))
-        color2.setGreen(min(color.green() + 30, 255))
-        color2.setBlue(min(color.blue() + 30, 255))
+        #header
+        recthead = QRectF(0, 0, width / 10, height)
+        recthead.adjust(spring, spring, -spring, -spring)
+        recthead.setHeight(recthead.width())
+        painter.setBrush(QBrush(color))
+        painter.drawRoundedRect(recthead, radius, radius)
 
-        radialGradient = QLinearGradient(0, height, width, 0)
+        recthead.adjust(0, recthead.height() + spring, 0, recthead.height() + spring)
+        painter.setBrush(QBrush(color2))
+        painter.drawRoundedRect(recthead, radius, radius)
+
+        recthead.adjust(0, recthead.height() + spring, 0, recthead.height() + spring)
+        painter.setBrush(QBrush(self.getColor(self.index + 2)))
+        painter.drawRoundedRect(recthead, radius, radius)
+
+        recthead.adjust(0, recthead.height() + spring, 0, recthead.height() + spring)
+        painter.setBrush(QBrush(self.getColor(self.index + 3)))
+        painter.drawRoundedRect(recthead, radius, radius)
+
+        recthead.adjust(0, recthead.height() + spring, 0, recthead.height() + spring)
+        painter.setBrush(QBrush(self.getColor(self.index + 4)))
+        painter.drawRoundedRect(recthead, radius, radius)
+
+        recthead.adjust(0, recthead.height() + spring, 0, recthead.height() + spring)
+        painter.setBrush(QBrush(self.getColor(self.index + 5)))
+        painter.drawRoundedRect(recthead, radius, radius)
+
+        #color3
+        lOffset = (1 - float(shadow / flashCount)) * rectColor3.width()
+        rectColor3.adjust(lOffset, 0, 0, 0)
+        painter.setBrush(QBrush(color2))
+        painter.drawRoundedRect(rectColor3, radius, radius)
+
+        #color2
+        radialGradient = QLinearGradient(rectColor2.topRight(), rectColor2.bottomLeft())
         radialGradient.setColorAt(0, color2)
-        radialGradient.setColorAt(0.3, color)
-        radialGradient.setColorAt(0.6, color)
-        radialGradient.setColorAt(1, color2)
-        # painter.setBrush(QBrush(radialGradient))
-        # painter.drawPath(paintPath)
+        radialGradient.setColorAt(1, color)
+        painter.setBrush(QBrush(radialGradient))
+        painter.drawRoundedRect(rectColor2, radius, radius)
 
-        cOffset = float(255 * shadow / flashCount)
+        #color1
+        cOffset = int(180 * shadow / flashCount)
         cTmep = color.red() + color.green() + color.blue()
         if  cTmep > 360:
-            color2.setRed(max(color.red() - cOffset, 0))
-            color2.setGreen(max(color.green() - cOffset, 0))
-            color2.setBlue(max(color.blue() - cOffset, 0))
+            color3.setRed(max(color.red() - cOffset, 0))
+            color3.setGreen(max(color.green() - cOffset, 0))
+            color3.setBlue(max(color.blue() - cOffset, 0))
         else:
-            color2.setRed(min(color.red() + cOffset, 255))
-            color2.setGreen(min(color.green() + cOffset, 255))
-            color2.setBlue(min(color.blue() + cOffset, 255))
-        
-        offset = width / 20
-        rect.adjust(offset, offset, -offset, -offset)
+            color3.setRed(min(color.red() + cOffset, 255))
+            color3.setGreen(min(color.green() + cOffset, 255))
+            color3.setBlue(min(color.blue() + cOffset, 255))
 
+        painter.setPen(QPen(color3))
+        painter.setFont(QFont('仿宋', 60))
+        painter.drawText(rectColor, Qt.AlignCenter, items['name'])
+        
+        rectColor.adjust(spring, spring, -spring, -spring)
         header = 'R' + str(color.red()) + ' G' + str(color.green()) + ' B' + str(color.blue())
-        painter.setPen(QPen(color2))
+        painter.setPen(QPen(color3))
         painter.setFont(QFont('仿宋', 14))
-        painter.drawText(rect, Qt.AlignLeft | Qt.AlignTop, header)
+        painter.drawText(rectColor, Qt.AlignLeft | Qt.AlignTop, header)
 
         footer = ''
         if items['book'].__len__() > 0:
@@ -170,14 +224,9 @@ class ColorWidget(QWidget):
             footer += ' -- ' + items['author']
         if items['describe'].__len__() > 0:
             footer += '\n' + items['describe']
-        painter.setPen(QPen(color2))
+        painter.setPen(QPen(color3))
         painter.setFont(QFont('仿宋', 14))
-        painter.drawText(rect, Qt.AlignRight | Qt.AlignBottom, footer)
-
-        rect.adjust(offset, offset, 0, -offset)
-        painter.setPen(QPen(color2))
-        painter.setFont(QFont('仿宋', 60))
-        painter.drawText(rect, Qt.AlignRight | Qt.AlignBottom, items['name'])
+        painter.drawText(rectColor, Qt.AlignRight | Qt.AlignBottom, footer)
 
         super().paintEvent(event)
 
